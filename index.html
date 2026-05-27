@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CYVEX XDR — Cyber Defense Command Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/intro.css"/>
+  <link rel="stylesheet" href="css/carousel.css"/>
+  <link rel="stylesheet" href="css/dashboard.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ INTRO OVERLAY ═══ -->
+<div id="intro-overlay">
+  <canvas id="intro-canvas"></canvas>
+  <canvas id="intro-matrix-canvas"></canvas>  
+  <div id="intro-logo">
+    <div class="intro-logo-text" id="intro-logo-glitch" data-text="CYVEX XDR">CYVEX XDR</div>
+    <div class="intro-logo-sub" id="intro-logo-sub"></div>
+    <div class="intro-scan-line"></div>
+  </div>
+  <button id="skip-btn" onclick="skipIntro()">SKIP ›</button>
+</div>
+
+<!-- ═══════════════════════════════════════ MAIN PAGE ══════ -->
+<div id="main-page">
+  <canvas id="matrix-bg"></canvas>
+  <div class="vignette"></div>
+
+  <!-- LOGO top-right -->
+  <div id="site-logo">
+    <span class="logo-dot"></span>
+    <span class="logo-name">CYVEX <span class="logo-xdr">XDR</span></span>
+    <span class="logo-ver">v4.2</span>
+  </div>
+
+  <!-- LANGUAGE TOGGLE bottom-left -->
+  <div id="lang-toggle">
+    <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    <span class="lang-sep">|</span>
+    <button class="lang-btn" id="btn-ar" onclick="setLang('ar')">AR</button>
+  </div>
+
+  <!-- ── CAROUSEL SCENE ── -->
+  <div id="carousel-scene">
+    <div id="carousel-wrapper">
+
+      <!-- BLOCK 0: SOC Overview -->
+      <div class="c-block" data-index="0" id="cblock-0">
+        <div class="block-inner" onclick="handleBlockClick(0)">
+          <div class="block-glow"></div>
+          <div class="block-corner tl"></div><div class="block-corner tr"></div>
+          <div class="block-corner bl"></div><div class="block-corner br"></div>
+          <div class="block-label" data-i18n="block1_label">SOC OVERVIEW</div>
+          <div class="block-preview" id="bp-0">
+            <div class="mini-soc-grid" id="mini-soc-stats"></div>
+            <canvas id="mini-map" class="mini-canvas"></canvas>
+            <div class="mini-feed-wrap" id="mini-feed"></div>
+          </div>
+          <div class="block-hint"><span class="hint-arrow">▶</span> <span data-i18n="click_enter">CLICK TO ENTER</span></div>
+        </div>
+      </div>
+
+      <!-- BLOCK 1: AI Pipeline -->
+      <div class="c-block" data-index="1" id="cblock-1">
+        <div class="block-inner" onclick="handleBlockClick(1)">
+          <div class="block-glow" style="--gc:#b66bff"></div>
+          <div class="block-corner tl" style="--cc:#b66bff"></div><div class="block-corner tr" style="--cc:#b66bff"></div>
+          <div class="block-corner bl" style="--cc:#b66bff"></div><div class="block-corner br" style="--cc:#b66bff"></div>
+          <div class="block-label" style="color:var(--purple)" data-i18n="block2_label">AI PIPELINE</div>
+          <div class="block-preview bp-placeholder">
+            <div class="ph-icon">⬡</div>
+            <canvas id="mini-pipe" class="mini-canvas ph-canvas"></canvas>
+            <div class="ph-text" data-i18n="coming_soon">COMING SOON</div>
+          </div>
+          <div class="block-hint"><span class="hint-arrow" style="color:var(--purple)">▶</span> <span data-i18n="click_enter">CLICK TO ENTER</span></div>
+        </div>
+      </div>
+
+      <!-- BLOCK 2: Threat Intel -->
+      <div class="c-block" data-index="2" id="cblock-2">
+        <div class="block-inner" onclick="handleBlockClick(2)">
+          <div class="block-glow" style="--gc:#00e5ff"></div>
+          <div class="block-corner tl" style="--cc:#00e5ff"></div><div class="block-corner tr" style="--cc:#00e5ff"></div>
+          <div class="block-corner bl" style="--cc:#00e5ff"></div><div class="block-corner br" style="--cc:#00e5ff"></div>
+          <div class="block-label" style="color:var(--cyan)" data-i18n="block3_label">THREAT INTEL</div>
+          <div class="block-preview bp-placeholder">
+            <div class="ph-icon" style="color:var(--cyan)">◈</div>
+            <canvas id="mini-intel" class="mini-canvas ph-canvas"></canvas>
+            <div class="ph-text" data-i18n="coming_soon">COMING SOON</div>
+          </div>
+          <div class="block-hint"><span class="hint-arrow" style="color:var(--cyan)">▶</span> <span data-i18n="click_enter">CLICK TO ENTER</span></div>
+        </div>
+      </div>
+
+    </div><!-- end carousel-wrapper -->
+  </div><!-- end carousel-scene -->
+
+  <!-- NAV DOTS -->
+  <div id="carousel-dots">
+    <span class="c-dot active" onclick="goToBlock(0)" title="SOC Overview"></span>
+    <span class="c-dot" onclick="goToBlock(1)" title="AI Pipeline"></span>
+    <span class="c-dot" onclick="goToBlock(2)" title="Threat Intel"></span>
+  </div>
+
+  <!-- NAV ARROWS -->
+  <button class="carousel-arrow left" onclick="prevBlock()">‹</button>
+  <button class="carousel-arrow right" onclick="nextBlock()">›</button>
+
+</div><!-- end main-page -->
+
+<!-- ═══════════════════════════════════════ EXPANDED OVERLAY ═══ -->
+<div id="expanded-overlay">
+  <button id="close-btn" onclick="closeExpanded()" title="Close">✕</button>
+
+  <!-- ── EXPANDED BLOCK 0: Full SOC Dashboard ── -->
+  <div id="exp-0" class="exp-block">
+    <div class="soc-wrap">
+
+      <div class="soc-head reveal-from-top">
+        <div>
+          <h1 class="soc-title">SOC <span data-i18n="soc_title_span">OVERVIEW</span></h1>
+          <div class="soc-sub" data-i18n="soc_sub">REAL-TIME GLOBAL CYBER DEFENSE COMMAND CENTER</div>
+        </div>
+        <div class="soc-live-badge"><span class="pulse-dot"></span> LIVE</div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div class="soc-stats-row" id="soc-stats-row">
+        <div class="soc-stat reveal-from-left" style="--rd:0ms">
+          <div class="ss-lbl" data-i18n="threats_blocked">THREATS BLOCKED</div>
+          <div class="ss-val neon" id="v-blocked">13,082</div>
+          <div class="ss-delta">▲ <span data-i18n="live_stream">live stream</span></div>
+        </div>
+        <div class="soc-stat sred reveal-from-left" style="--rd:80ms">
+          <div class="ss-lbl" data-i18n="active_incidents">ACTIVE INCIDENTS</div>
+          <div class="ss-val red-v" id="v-incidents">7</div>
+          <div class="ss-delta" style="color:var(--red)">▲ <span data-i18n="critical">critical</span></div>
+        </div>
+        <div class="soc-stat scyan reveal-from-right" style="--rd:160ms">
+          <div class="ss-lbl" data-i18n="packets_sec">PACKETS / SEC</div>
+          <div class="ss-val cyan-v" id="v-pps">56,796</div>
+          <div class="ss-delta">▲ <span data-i18n="inbound">inbound</span></div>
+        </div>
+        <div class="soc-stat spurple reveal-from-right" style="--rd:240ms">
+          <div class="ss-lbl" data-i18n="ai_confidence">AI CONFIDENCE</div>
+          <div class="ss-val purple-v" id="v-conf">94.8%</div>
+          <div class="ss-delta">neural-core</div>
+        </div>
+      </div>
+
+      <!-- MAP + FEED -->
+      <div class="soc-row-2">
+        <div class="soc-panel reveal-from-left" style="--rd:300ms" id="panel-map">
+          <div class="panel-h">
+            <span>◉ <span data-i18n="attack_map">REAL-TIME GLOBAL ATTACK MAP</span></span>
+            <span class="live-pill">LIVE</span>
+          </div>
+          <div class="map-wrap">
+            <canvas id="worldmap"></canvas>
+            <div class="scanline"></div>
+          </div>
+        </div>
+        <div class="soc-panel reveal-from-right" style="--rd:400ms" id="panel-feed">
+          <div class="panel-h">
+            <span>⚡ <span data-i18n="threat_feed">LIVE THREAT FEED</span></span>
+            <span class="live-pill">STREAMING</span>
+          </div>
+          <div class="soc-feed" id="feed-main"></div>
+        </div>
+      </div>
+
+      <!-- BRAIN + RADAR + AI FEED -->
+      <div class="soc-row-3">
+        <div class="soc-panel reveal-from-bottom" style="--rd:450ms" id="panel-brain">
+          <div class="panel-h"><span>🧠 <span data-i18n="neural_corr">NEURAL CORRELATION</span></span><span class="live-pill">AI</span></div>
+          <div class="panel-b"><canvas id="brain-canvas"></canvas></div>
+        </div>
+        <div class="soc-panel reveal-from-bottom" style="--rd:530ms" id="panel-radar">
+          <div class="panel-h"><span>📡 <span data-i18n="threat_radar">THREAT RADAR</span></span><span class="live-pill">SCAN</span></div>
+          <div class="panel-b"><canvas id="radar-canvas"></canvas></div>
+        </div>
+        <div class="soc-panel reveal-from-bottom" style="--rd:600ms" id="panel-ai-feed">
+          <div class="panel-h"><span>🤖 <span data-i18n="ai_feed">AI DECISION FEED</span></span><span class="live-pill">LIVE</span></div>
+          <div class="soc-feed short" id="feed-ai"></div>
+        </div>
+      </div>
+
+    </div><!-- end soc-wrap -->
+  </div><!-- end exp-0 -->
+
+  <!-- ── EXPANDED BLOCK 1 ── -->
+  <div id="exp-1" class="exp-block">
+    <div class="cs-full">
+      <div class="csf-icon" style="color:var(--purple)">⬡</div>
+      <div class="csf-title" data-i18n="block2_label">AI PIPELINE</div>
+      <div class="csf-sub" data-i18n="cs_full_sub">Module under active development — launching soon</div>
+    </div>
+  </div>
+
+  <!-- ── EXPANDED BLOCK 2 ── -->
+  <div id="exp-2" class="exp-block">
+    <div class="cs-full">
+      <div class="csf-icon" style="color:var(--cyan)">◈</div>
+      <div class="csf-title" data-i18n="block3_label">THREAT INTEL</div>
+      <div class="csf-sub" data-i18n="cs_full_sub">Module under active development — launching soon</div>
+    </div>
+  </div>
+
+</div><!-- end expanded-overlay -->
+
+<!-- ═══════════════════════════════ SCRIPTS ═══ -->
+<script src="js/i18n.js"></script>
+<script src="js/matrix.js"></script>
+<script src="js/soc_dashboard.js"></script>
+<script src="js/carousel.js"></script>
+<script src="js/intro.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

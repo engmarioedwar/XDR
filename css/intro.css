@@ -1,0 +1,171 @@
+/* ═══════════════════════════════════════════════════════════
+   CYVEX XDR  —  intro.css
+═══════════════════════════════════════════════════════════ */
+
+/* ── OVERLAY ── */
+#intro-overlay {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+/* Three.js canvas */
+#intro-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+
+/* Matrix rain canvas (phase 3) */
+#intro-matrix-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  transition: opacity .6s ease;
+  pointer-events: none;
+}
+#intro-matrix-canvas.visible { opacity: 1; }
+
+/* ── LOGO ── */
+#intro-logo {
+  position: relative; z-index: 2;
+  text-align: center;
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .7s ease, transform .7s ease;
+  pointer-events: none;
+}
+#intro-logo.visible {
+  opacity: 1; transform: scale(1);
+}
+
+/* Glitch text */
+.intro-logo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(32px, 7vw, 72px);
+  letter-spacing: 12px;
+  color: #00ff9d;
+  text-shadow:
+    0 0 20px rgba(0,255,157,.9),
+    0 0 50px rgba(0,255,157,.4),
+    0 0 100px rgba(0,255,157,.2);
+  position: relative;
+  animation: glitch 3s infinite linear;
+}
+
+.intro-logo-text::before,
+.intro-logo-text::after {
+  content: attr(data-text);
+  position: absolute; inset: 0;
+  font-family: inherit; font-size: inherit; font-weight: inherit;
+  letter-spacing: inherit;
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+}
+.intro-logo-text::before {
+  color: #00e5ff;
+  animation: glitch-before 3s infinite linear;
+}
+.intro-logo-text::after {
+  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+  color: #b66bff;
+  animation: glitch-after 3s infinite linear;
+}
+
+@keyframes glitch {
+  0%, 90%, 100% { transform: translate(0,0); }
+  92% { transform: translate(-2px, 1px); }
+  94% { transform: translate(2px, -1px); }
+  96% { transform: translate(-1px, 2px); }
+  98% { transform: translate(1px, -1px); }
+}
+@keyframes glitch-before {
+  0%, 88%, 100% { transform: translate(0,0); opacity: .8; }
+  90% { transform: translate(3px, 0); opacity: .7; }
+  92% { transform: translate(-3px, 1px); opacity: .6; }
+  94% { transform: translate(0,0); opacity: .8; }
+}
+@keyframes glitch-after {
+  0%, 88%, 100% { transform: translate(0,0); opacity: .8; }
+  90% { transform: translate(-3px, 0); opacity: .7; }
+  92% { transform: translate(3px, -1px); opacity: .6; }
+  94% { transform: translate(0,0); opacity: .8; }
+}
+
+/* Subtitle typing */
+.intro-logo-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(10px, 1.8vw, 16px);
+  letter-spacing: 6px;
+  color: rgba(0,229,255,.8);
+  text-transform: uppercase;
+  margin-top: 18px;
+  text-shadow: 0 0 10px rgba(0,229,255,.5);
+  min-height: 24px;
+}
+
+/* scan line inside logo area */
+.intro-scan-line {
+  position: absolute;
+  left: -20px; right: -20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon, #00ff9d), transparent);
+  top: 0;
+  animation: intro-scan 2.4s ease-in-out infinite;
+  opacity: .4;
+}
+@keyframes intro-scan {
+  0%   { top: -10px; opacity: 0; }
+  20%  { opacity: .5; }
+  80%  { opacity: .5; }
+  100% { top: calc(100% + 10px); opacity: 0; }
+}
+
+/* ── SKIP BUTTON ── */
+#skip-btn {
+  position: absolute;
+  top: 20px; right: 24px;
+  background: transparent;
+  border: 1px solid rgba(0,255,157,.25);
+  color: rgba(0,255,157,.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all .3s;
+}
+#skip-btn:hover {
+  color: var(--neon, #00ff9d);
+  border-color: rgba(0,255,157,.6);
+  background: rgba(0,255,157,.06);
+  text-shadow: 0 0 8px rgba(0,255,157,.6);
+}
+
+/* ── FADE OUT ── */
+#intro-overlay.fade-out {
+  animation: introFadeOut .9s ease forwards;
+}
+@keyframes introFadeOut {
+  0%   { opacity: 1; transform: scale(1); }
+  60%  { opacity: .6; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.1); pointer-events: none; }
+}
+
+/* ── BORDER CORNERS ON LOGO BOX (optional decoration) ── */
+#intro-logo::before, #intro-logo::after {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  border-color: rgba(0,255,157,.4);
+  border-style: solid;
+}
+#intro-logo::before { top: -10px; left: -16px; border-width: 1px 0 0 1px; }
+#intro-logo::after  { bottom: -10px; right: -16px; border-width: 0 1px 1px 0; }
+
+/* ── PHASE TRANSITION HELPERS ── */
+.intro-phase-matrix #intro-canvas { opacity: 0; transition: opacity .5s; }
+.intro-phase-logo   #intro-matrix-canvas { opacity: .25; }
