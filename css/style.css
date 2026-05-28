@@ -76,23 +76,42 @@ html, body {
 }
 #main-page.visible { opacity: 1; }
 
-/* ── SITE LOGO ── */
+/* ── SITE LOGO (main page - top left) ── */
 #site-logo {
-  position: fixed; top: 22px; left: 30px;
+  position: fixed; top: 16px; left: 20px;
   z-index: 200;
-  display: flex; align-items: center; gap: 10px;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 3px;
-  color: var(--neon);
-  text-shadow: 0 0 16px rgba(0,255,157,.8);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   opacity: 0;
   transform: translateY(-10px);
   transition: opacity .6s ease .4s, transform .6s ease .4s;
 }
 #main-page.visible #site-logo {
   opacity: 1; transform: translateY(0);
+}
+
+/* Logo image — main page (small, beside text) */
+.logo-img {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(0,255,157,.5));
+}
+
+/* Text group beside logo */
+.logo-text-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--neon);
+  text-shadow: 0 0 14px rgba(0,255,157,.8);
 }
 .logo-dot {
   width: 9px; height: 9px;
@@ -291,7 +310,9 @@ html, body {
     --block-h:    240px;
   }
   .carousel-arrow { display: none; }
-  #site-logo  { font-size: 12px; top: 16px; left: 16px; gap: 8px; }
+  #site-logo  { top: 14px; left: 14px; }
+  .logo-img   { height: 28px; }
+  .logo-text-wrap { font-size: 11px; letter-spacing: 2px; }
   #lang-toggle{ bottom: 16px; left: 16px; }
   .logo-ver   { display: none; }
 }
@@ -299,14 +320,14 @@ html, body {
 /* Mobile */
 @media (max-width: 480px) {
   :root {
-    /* Block should fit in viewport with some margin */
     --block-w:    min(270px, 75vw);
     --block-h:    min(210px, 52vw);
-    /* Radius: enough so side blocks don't overlap, but not too much */
     --carousel-r: min(240px, 62vw);
   }
   .carousel-arrow { display: none; }
-  #site-logo  { font-size: 11px; top: 14px; left: 12px; gap: 6px; letter-spacing: 2px; }
+  #site-logo  { top: 12px; left: 12px; gap: 3px; }
+  .logo-img   { height: 24px; }
+  .logo-text-wrap { font-size: 10px; letter-spacing: 2px; gap: 6px; }
   #lang-toggle{ bottom: 14px; left: 12px; }
   #carousel-dots { bottom: 18px; }
   .logo-ver   { display: none; }
@@ -319,4 +340,5 @@ html, body {
     --block-h:    190px;
     --carousel-r: 210px;
   }
+  .logo-img { height: 20px; }
 }

@@ -27,17 +27,43 @@
 }
 #intro-matrix-canvas.visible { opacity: 1; }
 
+/* ── LOGO CONTAINER — defined above ── */
+
+/* ── LOGO CONTAINER — defined above ── */
 /* ── LOGO ── */
 #intro-logo {
   position: relative; z-index: 2;
   text-align: center;
   opacity: 0;
-  transform: scale(.85);
+  transform: scale(.88);
   transition: opacity .7s ease, transform .7s ease;
   pointer-events: none;
+  margin-top: -8vh;
+  display: flex;
+  flex-direction: column;  /* image ON TOP, text below */
+  align-items: center;
+  gap: 6px;
 }
 #intro-logo.visible {
   opacity: 1; transform: scale(1);
+}
+
+/* Logo image — intro (larger, above CYVEX XDR) */
+.intro-logo-img {
+  display: block;
+  height: clamp(120px, 30vw, 600px);
+  width: auto;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 14px rgba(0,255,157,.9))
+    drop-shadow(0 0 35px rgba(0,255,157,.4));
+  animation: logoPulse 3s ease-in-out infinite;
+  margin-bottom: 4px;
+}
+
+@keyframes logoPulse {
+  0%, 100% { filter: drop-shadow(0 0 14px rgba(0,255,157,.9))  drop-shadow(0 0 35px rgba(0,255,157,.4)); }
+  50%       { filter: drop-shadow(0 0 24px rgba(0,255,157,1))   drop-shadow(0 0 60px rgba(0,255,157,.65)); }
 }
 
 /* Glitch text */
@@ -100,7 +126,7 @@
   letter-spacing: 6px;
   color: rgba(0,229,255,.8);
   text-transform: uppercase;
-  margin-top: 18px;
+  margin-top: 6px;
   text-shadow: 0 0 10px rgba(0,229,255,.5);
   min-height: 24px;
 }

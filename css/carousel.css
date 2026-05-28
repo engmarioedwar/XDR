@@ -256,29 +256,50 @@
   -webkit-backdrop-filter: blur(1px);
   display: none;
   overflow: hidden;
+  /* Force GPU layer for smooth animation */
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 #expanded-overlay.active { display: block; }
 
 /* Expand IN */
 #expanded-overlay.expanding {
-  animation: overlayZoomIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: overlayZoomIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 /* Collapse OUT */
 #expanded-overlay.collapsing {
-  animation: overlayZoomOut 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  animation: overlayZoomOut 0.45s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
 @keyframes overlayZoomIn {
-  0%   { transform: scale(0.08); opacity: 0; border-radius: 20px; }
-  30%  { opacity: 1; }
+  0%   { transform: scale(0.1) translateZ(0);  opacity: 0; border-radius: 20px; }
+  25%  { opacity: 1; }
   70%  { border-radius: 6px; }
-  100% { transform: scale(1);   opacity: 1; border-radius: 0; }
+  100% { transform: scale(1) translateZ(0);    opacity: 1; border-radius: 0; }
 }
 @keyframes overlayZoomOut {
-  0%   { transform: scale(1);    opacity: 1; border-radius: 0; }
-  40%  { border-radius: 12px; }
-  100% { transform: scale(0.05); opacity: 0; border-radius: 20px; }
+  0%   { transform: scale(1) translateZ(0);    opacity: 1; border-radius: 0; }
+  35%  { border-radius: 12px; }
+  100% { transform: scale(0.06) translateZ(0); opacity: 0; border-radius: 20px; }
+}
+
+/* Mobile: simpler fade instead of zoom — far less jank */
+@media (max-width: 768px) {
+  #expanded-overlay.expanding {
+    animation: overlayFadeIn 0.4s ease forwards;
+  }
+  #expanded-overlay.collapsing {
+    animation: overlayFadeOut 0.3s ease forwards;
+  }
+  @keyframes overlayFadeIn {
+    from { opacity: 0; transform: scale(0.96) translateZ(0); }
+    to   { opacity: 1; transform: scale(1) translateZ(0); }
+  }
+  @keyframes overlayFadeOut {
+    from { opacity: 1; transform: scale(1) translateZ(0); }
+    to   { opacity: 0; transform: scale(0.96) translateZ(0); }
+  }
 }
 
 /* ── CLOSE BUTTON ── */

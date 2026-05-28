@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   CYVEX XDR  —  intro.js
+   CYVEX XDR  —  intro.js  (v2 — Mobile Optimized)
 ═══════════════════════════════════════════════════════════ */
 
 (function () {
@@ -12,13 +12,21 @@
   let skipCalled = false;
   let phaseTimer, blockTimer;
 
+  /* ── Mobile detection ── */
+  const IS_MOB = window.innerWidth < 768;
+
   /* ════════════════════════════════════
      THREE.JS
   ════════════════════════════════════ */
   let renderer, scene, camera, animId;
   let camZ = 80;
   let tunnelSpeed = 0.50;
-  const MAX_SPEED = 4.5;  const RINGS = 120, PTS = 32, RADIUS = 14, LENGTH = 1400;
+  /* Fewer rings/points on mobile = less GPU load */
+  const MAX_SPEED = IS_MOB ? 3.5 : 4.5;
+  const RINGS  = IS_MOB ? 70  : 120;
+  const PTS    = IS_MOB ? 20  : 32;
+  const RADIUS = 14;
+  const LENGTH = IS_MOB ? 900 : 1400;
 
   /* البلوكات الـ 3 */
   const BLOCK_DATA = [
@@ -34,9 +42,10 @@
   function initThree() {
     if (!window.THREE) { phase_matrix(); return; }
 
-    renderer = new THREE.WebGLRenderer({ canvas: tunCanvas, antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ canvas: tunCanvas, antialias: !IS_MOB, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    /* Cap pixel ratio at 1.5 on mobile — biggest single perf win */
+    renderer.setPixelRatio(IS_MOB ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2));
     scene  = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 3000);
     camera.position.z = camZ;
@@ -106,31 +115,48 @@
     });
   }
 
-  /* ── وضع البلوك أمام الكاميرا على جدار النفق ── */
+  /* ── وضع البلوك أمام الكاميرا ──
+     On mobile: center of tunnel (not wall) so blocks are fully visible
+     On desktop: keep original wall placement
+  ── */
   function placeBlock(mesh, side) {
-    const AHEAD = 18;          // أقرب للكاميرا = أوضح وأكبر
-    const wallAngle = side > 0 ? 0.15 : Math.PI - 0.15;
-    const wallDist  = RADIUS - 1.8;
-
-    mesh.position.set(
-      Math.cos(wallAngle) * wallDist,
-      0.5,
-      camera.position.z - AHEAD
-    );
-    /* يبص ناحية مركز النفق مع ميل بسيط */
-    mesh.rotation.y = side > 0 ? -0.22 : Math.PI + 0.22;
+    if (IS_MOB) {
+      /* Mobile: place block dead-center ahead of camera, slightly tilted */
+      mesh.position.set(
+        0,
+        0,
+        camera.position.z - 16
+      );
+      mesh.rotation.y = 0;
+    } else {
+      /* Desktop: original wall placement */
+      const AHEAD = 18;
+      const wallAngle = side > 0 ? 0.15 : Math.PI - 0.15;
+      const wallDist  = RADIUS - 1.8;
+      mesh.position.set(
+        Math.cos(wallAngle) * wallDist,
+        0.5,
+        camera.position.z - AHEAD
+      );
+      mesh.rotation.y = side > 0 ? -0.22 : Math.PI + 0.22;
+    }
   }
 
   /* ════════════════════════════════════
      MAIN LOOP
   ════════════════════════════════════ */
+  let _loopFrame = 0;
   function loop() {
     animId = requestAnimationFrame(loop);
+    _loopFrame++;
+
+    /* Skip every other frame on mobile to halve GPU load */
+    if (IS_MOB && _loopFrame % 2 !== 0) return;
 
     /* حرك الكاميرا */
     camera.position.z -= tunnelSpeed;
     tunnelSpeed = Math.min(tunnelSpeed + 0.012, MAX_SPEED);
-    camera.rotation.z += 0.003;
+    camera.rotation.z += IS_MOB ? 0.002 : 0.003;
 
     /* update البلوكات */
     blockMeshes.forEach((mesh, i) => {
@@ -153,30 +179,29 @@
   }
 
   /* ════════════════════════════════════
-     BLOCK SEQUENCE (يبدأ بعد 2.8ث)
+     BLOCK SEQUENCE
   ════════════════════════════════════ */
   function runBlockSequence(onDone) {
     let idx = 0;
+    /* Shorter display time on mobile */
+    const SHOW_MS  = IS_MOB ? 1000 : 1500;
+    const FADE_MS  = IS_MOB ? 300  : 450;
+    const WAIT_END = IS_MOB ? 800  : 1500;
 
     function showNext() {
       if (skipCalled) { onDone(); return; }
       if (idx >= BLOCK_DATA.length) {
-        /* دائرة فاضية 1.5ث بس — مش 3ث ← مش عاوز وقت طويل في الظلام */
-        blockTimer = setTimeout(onDone, 1500);
+        blockTimer = setTimeout(onDone, WAIT_END);
         return;
       }
 
-      /* أظهر البلوك */
       blockTargetOp[idx] = 1;
 
-      /* بعد 1.5ث اخفيه وروح للتالي */
       blockTimer = setTimeout(() => {
         blockTargetOp[idx] = 0;
-        const prev = idx;
         idx++;
-        /* انتظر الـ fade يخلص (400ms) وروح للتالي */
-        blockTimer = setTimeout(showNext, 450);
-      }, 1500);
+        blockTimer = setTimeout(showNext, FADE_MS);
+      }, SHOW_MS);
     }
 
     showNext();
@@ -255,22 +280,29 @@
   /* ════════════════════════════════════
      MATRIX RAIN
   ════════════════════════════════════ */
-  let matCtx, matCols, matDrops, matAnimId;
+  let matCtx, matCols, matDrops, matAnimId, _matFrame = 0;
   function initMatrix() {
     matrixC.width=window.innerWidth; matrixC.height=window.innerHeight;
     matCtx=matrixC.getContext('2d');
-    matCols=Math.floor(matrixC.width/15);
+    /* Larger font size on mobile = fewer columns = faster */
+    const fontSize = IS_MOB ? 18 : 15;
+    matCols=Math.floor(matrixC.width / fontSize);
     matDrops=Array.from({length:matCols},()=>Math.random()*-60);
+    matrixC.dataset.fs = fontSize;
     drawMatrix();
   }
   function drawMatrix() {
     matAnimId=requestAnimationFrame(drawMatrix);
+    _matFrame++;
+    /* Skip frames on mobile */
+    if (IS_MOB && _matFrame % 2 !== 0) return;
+    const fs = parseInt(matrixC.dataset.fs) || 15;
     matCtx.fillStyle='rgba(0,0,0,.15)'; matCtx.fillRect(0,0,matrixC.width,matrixC.height);
-    matCtx.font='15px "JetBrains Mono",monospace';
+    matCtx.font=fs+'px "JetBrains Mono",monospace';
     for(let i=0;i<matCols;i++){
-      const c=Math.random()>.5?'1':'0', y=matDrops[i]*15;
+      const c=Math.random()>.5?'1':'0', y=matDrops[i]*fs;
       matCtx.fillStyle=matDrops[i]<2?'rgba(255,255,255,.9)':'rgba(0,255,157,.8)';
-      matCtx.fillText(c,i*15,y);
+      matCtx.fillText(c,i*fs,y);
       if(y>matrixC.height&&Math.random()>.97)matDrops[i]=0;
       matDrops[i]+=0.8;
     }

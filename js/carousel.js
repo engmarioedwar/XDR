@@ -98,20 +98,25 @@ function openExpanded(idx) {
   overlay.classList.remove('collapsing');
   overlay.classList.add('active', 'expanding');
 
+  /* Wait for zoom/fade animation to fully finish */
   overlay.addEventListener('animationend', () => {
     overlay.classList.remove('expanding');
 
-    /* Shorter delay on mobile */
-    const revealDelay = IS_MOB ? 30 : 60;
-    setTimeout(() => {
-      if (target) target.classList.add('reveal-active');
-
-      /* Start dashboard after reveals */
-      const dashDelay = IS_MOB ? 300 : 500;
+    /* Small paint settle gap */
+    const revealDelay = IS_MOB ? 20 : 50;
+    requestAnimationFrame(() => {
       setTimeout(() => {
-        if (idx === 0 && window.startSOCDashboard) startSOCDashboard();
-      }, dashDelay);
-    }, revealDelay);
+        if (target) target.classList.add('reveal-active');
+
+        /* Dashboard starts after ALL reveals finish animating.
+           On mobile the reveal transition is 0.3s + max delay ~600ms = ~900ms total
+           On desktop: 0.45s + 600ms = ~1050ms */
+        const dashDelay = IS_MOB ? 700 : 900;
+        setTimeout(() => {
+          if (idx === 0 && window.startSOCDashboard) startSOCDashboard();
+        }, dashDelay);
+      }, revealDelay);
+    });
   }, { once: true });
 }
 
