@@ -1,8 +1,28 @@
 /* ═══════════════════════════════════════════════════════════
-   CYVEX XDR  —  soc_dashboard.js
-   All SOC dashboard logic: data simulation, canvas renders,
-   live feeds, stat counters — extracted from cyvex_xdr.py
+   CYVEX XDR  —  soc_dashboard.js  (v2 — Mobile Optimized)
+   Performance fixes:
+   - Staggered canvas init (not all at once)
+   - Reduced particle/node counts on mobile
+   - Frame throttling for low-end devices
+   - shadowBlur disabled on mobile (major perf killer)
+   - World map dots pre-rendered to offscreen canvas
+   - Continent dots drawn once, not every frame
 ═══════════════════════════════════════════════════════════ */
+
+/* ── MOBILE DETECTION ── */
+const IS_MOBILE = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+const IS_LOW_END = IS_MOBILE && (navigator.hardwareConcurrency || 4) <= 4;
+
+/* shadow helper — disabled on mobile for performance */
+function setShadow(ctx, blur, color) {
+  if (IS_MOBILE) return;
+  ctx.shadowBlur  = blur;
+  ctx.shadowColor = color;
+}
+function clearShadow(ctx) {
+  if (IS_MOBILE) return;
+  ctx.shadowBlur = 0;
+}
 
 /* ── DATA SIMULATION ── */
 const _SEV     = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -61,33 +81,35 @@ let socLoopId    = null;
 let mapAnimId    = null;
 let brainAnimId  = null;
 let radarAnimId  = null;
-let attacks      = [];   // active arcs on world map
+let attacks      = [];
 
 /* ════════════════════════════════════
-   ENTRY — called when block 0 opens
+   ENTRY — staggered init to avoid jank
 ════════════════════════════════════ */
 function startSOCDashboard() {
-  initWorldMap();
-  initBrain();
-  initRadar();
   renderStats();
   renderFeed();
   renderAIFeed();
-  renderMiniFeed();
-  renderMiniStats();
 
+  /* Stagger canvas inits to avoid frame drop on open */
+  setTimeout(() => initWorldMap(),  80);
+  setTimeout(() => initBrain(),    200);
+  setTimeout(() => initRadar(),    320);
+
+  /* Slower tick on mobile */
+  const tickRate = IS_MOBILE ? 2000 : 1200;
   socLoopId = setInterval(() => {
     tickState();
     renderStats();
     renderFeed();
     renderAIFeed();
-  }, 1200);
+  }, tickRate);
 }
 
 window.startSOCDashboard = startSOCDashboard;
 
 function stopSOCDashboard() {
-  if (socLoopId)   { clearInterval(socLoopId);   socLoopId   = null; }
+  if (socLoopId)   { clearInterval(socLoopId);          socLoopId   = null; }
   if (mapAnimId)   { cancelAnimationFrame(mapAnimId);   mapAnimId   = null; }
   if (brainAnimId) { cancelAnimationFrame(brainAnimId); brainAnimId = null; }
   if (radarAnimId) { cancelAnimationFrame(radarAnimId); radarAnimId = null; }
@@ -102,12 +124,10 @@ function tickState() {
   m.ai_confidence    = _rf(92, 99.5);
   m.active_incidents = Math.max(1, m.active_incidents + _ri(-1, 2));
 
-  /* prepend new event every ~3 ticks */
   if (Math.random() > 0.65) {
     const f = makeFeedItem();
     SOC_STATE.feed.unshift(f);
     SOC_STATE.feed = SOC_STATE.feed.slice(0, 40);
-    /* add map arc */
     addMapAttack(f);
   }
 
@@ -132,7 +152,7 @@ function setText(id, val) {
 }
 
 /* ════════════════════════════════════
-   THREAT FEED (expanded)
+   THREAT FEED
 ════════════════════════════════════ */
 function renderFeed() {
   const el = document.getElementById('feed-main');
@@ -147,7 +167,6 @@ function renderFeed() {
     </div>`).join('');
 }
 
-/* ── AI DECISION FEED ── */
 function renderAIFeed() {
   const el = document.getElementById('feed-ai');
   if (!el) return;
@@ -160,12 +179,13 @@ function renderAIFeed() {
 }
 
 /* ════════════════════════════════════
-   MINI PREVIEW (inside carousel block)
+   MINI PREVIEW (carousel block)
 ════════════════════════════════════ */
 function initMiniCanvases() {
   renderMiniStats();
   renderMiniFeed();
-  initMiniMap();
+  /* Only init mini map on non-low-end */
+  if (!IS_LOW_END) initMiniMap();
 }
 window.initMiniCanvases = initMiniCanvases;
 
@@ -215,42 +235,56 @@ function initMiniMap() {
 
   const x = c.getContext('2d');
   const w = c.width, h = c.height;
-  let miniAtks = SOC_STATE.feed.slice(0, 6).map(f => ({
+
+  /* pre-draw continent dots once */
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w; offscreen.height = h;
+  const ox = offscreen.getContext('2d');
+  ox.fillStyle = 'rgba(0,255,170,.09)';
+  for (let i = 0; i < w; i += 6) for (let j = 0; j < h; j += 6) {
+    const lat = 90 - (j / h) * 180, lng = (i / w) * 360 - 180;
+    const land = (lat > -55 && lat < 70) && (
+      (lng > -130 && lng < -60 && lat > 15) ||
+      (lng > -80 && lng < -35 && lat < 15 && lat > -55) ||
+      (lng > -10 && lng < 40 && lat > 35) ||
+      (lng > -20 && lng < 50 && lat < 35 && lat > -35) ||
+      (lng > 40 && lng < 150 && lat > 10) ||
+      (lng > 110 && lng < 155 && lat < -10 && lat > -40));
+    if (land && Math.random() > 0.55) ox.fillRect(i, j, 1, 1);
+  }
+
+  let miniAtks = SOC_STATE.feed.slice(0, 4).map(f => ({
     src: ll(f.lat, f.lng, w, h),
     dst: ll(20, 30, w, h),
-    sev: f.severity, t: Math.random() * 30, life: 80
+    sev: f.severity, t: Math.random() * 25, life: 80
   }));
 
+  let frameCount = 0;
   function draw() {
-    x.fillStyle = 'rgba(3,6,11,.3)';
-    x.fillRect(0, 0, w, h);
-    /* dots for continents */
-    x.fillStyle = 'rgba(0,255,170,.09)';
-    for (let i = 0; i < w; i += 5) for (let j = 0; j < h; j += 5) {
-      const lat = 90 - (j / h) * 180, lng = (i / w) * 360 - 180;
-      const land = (lat > -55 && lat < 70) && (
-        (lng > -130 && lng < -60 && lat > 15) ||
-        (lng > -80 && lng < -35 && lat < 15 && lat > -55) ||
-        (lng > -10 && lng < 40 && lat > 35) ||
-        (lng > -20 && lng < 50 && lat < 35 && lat > -35) ||
-        (lng > 40 && lng < 150 && lat > 10) ||
-        (lng > 110 && lng < 155 && lat < -10 && lat > -40));
-      if (land && Math.random() > 0.55) x.fillRect(i, j, 1, 1);
+    frameCount++;
+    /* Skip every other frame on mobile */
+    if (IS_MOBILE && frameCount % 2 !== 0) {
+      requestAnimationFrame(draw);
+      return;
     }
-    /* arcs */
+
+    x.fillStyle = 'rgba(3,6,11,.35)';
+    x.fillRect(0, 0, w, h);
+    x.drawImage(offscreen, 0, 0);
+
     miniAtks.forEach(a => {
       a.t++;
       const col = a.sev === 'CRITICAL' ? '#ff3860' : a.sev === 'HIGH' ? '#ff9f1c' : '#00ff9d';
       const p = Math.min(1, a.t / 25);
       const cy = Math.min(a.src.y, a.dst.y) - 20;
       const cx = (a.src.x + a.dst.x) / 2;
-      x.strokeStyle = col; x.lineWidth = 0.8; x.shadowBlur = 4; x.shadowColor = col;
+      x.strokeStyle = col; x.lineWidth = 0.8;
       x.beginPath();
       x.moveTo(a.src.x, a.src.y);
       const ex = a.src.x + (a.dst.x - a.src.x) * p;
       const ey = (1-p)*(1-p)*a.src.y + 2*(1-p)*p*cy + p*p*a.dst.y;
       x.quadraticCurveTo(cx, cy, ex, ey);
-      x.stroke(); x.shadowBlur = 0;
+      x.stroke();
       if (p >= 1) a.life--;
     });
     miniAtks = miniAtks.filter(a => a.life > 0);
@@ -269,7 +303,32 @@ function ll(lat, lng, w, h) {
 
 /* ════════════════════════════════════
    WORLD MAP (expanded)
+   - Offscreen canvas for continent dots
+   - Frame skip on mobile
 ════════════════════════════════════ */
+let mapOffscreen = null;
+
+function buildMapOffscreen(w, h) {
+  const oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  const ox = oc.getContext('2d');
+  ox.fillStyle = 'rgba(0,255,170,.11)';
+  /* Larger step on mobile = fewer dots = faster */
+  const step = IS_MOBILE ? 10 : 7;
+  for (let i = 0; i < w; i += step) for (let j = 0; j < h; j += step) {
+    const lat = 90 - (j / h) * 180, lng = (i / w) * 360 - 180;
+    const land = (lat > -55 && lat < 70) && (
+      (lng > -130 && lng < -60 && lat > 15) ||
+      (lng > -80 && lng < -35 && lat < 15 && lat > -55) ||
+      (lng > -10 && lng < 40 && lat > 35) ||
+      (lng > -20 && lng < 50 && lat < 35 && lat > -35) ||
+      (lng > 40 && lng < 150 && lat > 10) ||
+      (lng > 110 && lng < 155 && lat < -10 && lat > -40));
+    if (land && Math.random() > 0.5) ox.fillRect(i, j, IS_MOBILE ? 1.5 : 1.5, IS_MOBILE ? 1.5 : 1.5);
+  }
+  return oc;
+}
+
 function initWorldMap() {
   const c = document.getElementById('worldmap');
   if (!c) return;
@@ -279,48 +338,58 @@ function initWorldMap() {
   const x = c.getContext('2d');
   const w = c.width, h = c.height;
 
-  /* seed map with existing feed */
-  attacks = SOC_STATE.feed.slice(0, 10).map(f => ({
+  mapOffscreen = buildMapOffscreen(w, h);
+
+  /* Fewer initial attacks on mobile */
+  const seed = IS_MOBILE ? 5 : 10;
+  attacks = SOC_STATE.feed.slice(0, seed).map(f => ({
     src: ll(f.lat, f.lng, w, h),
     dst: ll(25, 32, w, h),
-    sev: f.severity, t: Math.random() * 30, life: 130
+    sev: f.severity, t: Math.random() * 30, life: IS_MOBILE ? 80 : 130
   }));
 
+  let frameCount = 0;
+
   function draw() {
+    frameCount++;
+    /* Skip frames on mobile */
+    if (IS_MOBILE && frameCount % 2 !== 0) {
+      mapAnimId = requestAnimationFrame(draw);
+      return;
+    }
+
     x.fillStyle = 'rgba(3,6,11,.22)';
     x.fillRect(0, 0, w, h);
-    /* continent dots */
-    x.fillStyle = 'rgba(0,255,170,.11)';
-    for (let i = 0; i < w; i += 7) for (let j = 0; j < h; j += 7) {
-      const lat = 90 - (j / h) * 180, lng = (i / w) * 360 - 180;
-      const land = (lat > -55 && lat < 70) && (
-        (lng > -130 && lng < -60 && lat > 15) ||
-        (lng > -80 && lng < -35 && lat < 15 && lat > -55) ||
-        (lng > -10 && lng < 40 && lat > 35) ||
-        (lng > -20 && lng < 50 && lat < 35 && lat > -35) ||
-        (lng > 40 && lng < 150 && lat > 10) ||
-        (lng > 110 && lng < 155 && lat < -10 && lat > -40));
-      if (land && Math.random() > 0.5) x.fillRect(i, j, 1.5, 1.5);
-    }
-    /* arcs */
+
+    /* draw pre-rendered continents */
+    x.drawImage(mapOffscreen, 0, 0);
+
     attacks.forEach(a => {
       a.t++;
       const col = a.sev === 'CRITICAL' ? '#ff3860' : a.sev === 'HIGH' ? '#ff9f1c' : a.sev === 'MEDIUM' ? '#ffd166' : '#23ffb0';
       const p = Math.min(1, a.t / 35);
       const cy = Math.min(a.src.y, a.dst.y) - 70;
       const cx = (a.src.x + a.dst.x) / 2;
-      x.strokeStyle = col; x.lineWidth = 1.2; x.shadowBlur = 8; x.shadowColor = col;
+      x.strokeStyle = col; x.lineWidth = 1.2;
+      setShadow(x, 8, col);
       x.beginPath(); x.moveTo(a.src.x, a.src.y);
       const ex = a.src.x + (a.dst.x - a.src.x) * p;
       const ey = (1-p)*(1-p)*a.src.y + 2*(1-p)*p*cy + p*p*a.dst.y;
       x.quadraticCurveTo(cx, cy, ex, ey);
-      x.stroke(); x.shadowBlur = 0;
+      x.stroke();
+      clearShadow(x);
       /* src dot */
       x.beginPath(); x.arc(a.src.x, a.src.y, 3, 0, Math.PI * 2);
-      x.fillStyle = col; x.shadowBlur = 12; x.shadowColor = col; x.fill(); x.shadowBlur = 0;
+      x.fillStyle = col;
+      setShadow(x, 12, col);
+      x.fill();
+      clearShadow(x);
       if (p >= 1) {
         x.beginPath(); x.arc(a.dst.x, a.dst.y, 3, 0, Math.PI * 2);
-        x.fillStyle = '#00e5ff'; x.shadowBlur = 12; x.shadowColor = '#00e5ff'; x.fill(); x.shadowBlur = 0;
+        x.fillStyle = '#00e5ff';
+        setShadow(x, 12, '#00e5ff');
+        x.fill();
+        clearShadow(x);
         a.life--;
       }
     });
@@ -334,16 +403,16 @@ function addMapAttack(f) {
   const c = document.getElementById('worldmap');
   if (!c) return;
   const w = c.width || 600, h = c.height || 320;
+  if (attacks.length > (IS_MOBILE ? 15 : 40)) attacks.shift();
   attacks.push({
     src: ll(f.lat, f.lng, w, h),
     dst: ll(25, 32, w, h),
-    sev: f.severity, t: 0, life: 130
+    sev: f.severity, t: 0, life: IS_MOBILE ? 80 : 130
   });
-  if (attacks.length > 40) attacks.shift();
 }
 
 /* ════════════════════════════════════
-   NEURAL BRAIN CANVAS
+   NEURAL BRAIN — fewer nodes on mobile
 ════════════════════════════════════ */
 function initBrain() {
   const c = document.getElementById('brain-canvas');
@@ -352,15 +421,24 @@ function initBrain() {
   c.width  = rect.width  || 400;
   c.height = rect.height || 220;
   const x  = c.getContext('2d');
-  const N  = Array.from({ length: 30 }, () => ({
+  /* Fewer nodes on mobile */
+  const nodeCount = IS_MOBILE ? 16 : 30;
+  const linkDist  = IS_MOBILE ? 90 : 110;
+  const N = Array.from({ length: nodeCount }, () => ({
     x: Math.random() * c.width,
     y: Math.random() * c.height,
-    vx: (Math.random() - 0.5) * 0.55,
-    vy: (Math.random() - 0.5) * 0.55,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5,
     pulse: Math.random() * Math.PI * 2,
   }));
 
+  let frameCount = 0;
   function draw() {
+    frameCount++;
+    if (IS_MOBILE && frameCount % 2 !== 0) {
+      brainAnimId = requestAnimationFrame(draw);
+      return;
+    }
     const w = c.width, h = c.height;
     x.clearRect(0, 0, w, h);
     N.forEach(n => {
@@ -372,11 +450,12 @@ function initBrain() {
     for (let i = 0; i < N.length; i++) {
       for (let j = i + 1; j < N.length; j++) {
         const d = Math.hypot(N[i].x - N[j].x, N[i].y - N[j].y);
-        if (d < 110) {
-          x.strokeStyle = `rgba(0,255,157,${(1 - d / 110) * 0.65})`;
-          x.lineWidth = 0.8; x.shadowBlur = 4; x.shadowColor = '#00ff9d';
+        if (d < linkDist) {
+          x.strokeStyle = `rgba(0,255,157,${(1 - d / linkDist) * 0.6})`;
+          x.lineWidth = 0.8;
+          if (!IS_MOBILE) { x.shadowBlur = 4; x.shadowColor = '#00ff9d'; }
           x.beginPath(); x.moveTo(N[i].x, N[i].y); x.lineTo(N[j].x, N[j].y); x.stroke();
-          x.shadowBlur = 0;
+          if (!IS_MOBILE) x.shadowBlur = 0;
         }
       }
     }
@@ -384,8 +463,10 @@ function initBrain() {
     N.forEach(n => {
       const r = 2 + Math.sin(n.pulse) * 1.2;
       x.beginPath(); x.arc(n.x, n.y, r, 0, Math.PI * 2);
-      x.fillStyle = '#00ff9d'; x.shadowBlur = 14; x.shadowColor = '#00ff9d';
-      x.fill(); x.shadowBlur = 0;
+      x.fillStyle = '#00ff9d';
+      setShadow(x, 14, '#00ff9d');
+      x.fill();
+      clearShadow(x);
     });
     brainAnimId = requestAnimationFrame(draw);
   }
@@ -393,7 +474,7 @@ function initBrain() {
 }
 
 /* ════════════════════════════════════
-   RADAR CANVAS
+   RADAR — throttled on mobile
 ════════════════════════════════════ */
 function initRadar() {
   const c = document.getElementById('radar-canvas');
@@ -403,13 +484,19 @@ function initRadar() {
   c.height = rect.height || 220;
   const x  = c.getContext('2d');
   let angle = 0;
-  const blips = Array.from({ length: 10 }, () => ({
+  const blips = Array.from({ length: IS_MOBILE ? 6 : 10 }, () => ({
     an: Math.random() * Math.PI * 2,
     r:  Math.random() * 0.85,
     bright: Math.random(),
   }));
 
+  let frameCount = 0;
   function draw() {
+    frameCount++;
+    if (IS_MOBILE && frameCount % 2 !== 0) {
+      radarAnimId = requestAnimationFrame(draw);
+      return;
+    }
     const w = c.width, h = c.height;
     const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 12;
     x.fillStyle = 'rgba(3,6,11,.2)'; x.fillRect(0, 0, w, h);
@@ -432,8 +519,10 @@ function initRadar() {
       x.fillStyle = g;
     } else { x.fillStyle = 'rgba(0,255,157,.12)'; }
     x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R, 0, Math.PI * 2); x.closePath(); x.fill();
-    x.strokeStyle = '#00ff9d'; x.lineWidth = 1.5; x.shadowBlur = 8; x.shadowColor = '#00ff9d';
-    x.beginPath(); x.moveTo(0, 0); x.lineTo(R, 0); x.stroke(); x.shadowBlur = 0;
+    x.strokeStyle = '#00ff9d'; x.lineWidth = 1.5;
+    setShadow(x, 8, '#00ff9d');
+    x.beginPath(); x.moveTo(0, 0); x.lineTo(R, 0); x.stroke();
+    clearShadow(x);
     x.restore();
     /* blips */
     blips.forEach(b => {
@@ -444,13 +533,19 @@ function initRadar() {
         const px = cx + Math.cos(b.an) * b.r * R, py = cy + Math.sin(b.an) * b.r * R;
         x.beginPath(); x.arc(px, py, 3 + b.bright * 2, 0, Math.PI * 2);
         x.fillStyle = `rgba(0,255,157,${b.bright})`;
-        x.shadowBlur = 12; x.shadowColor = '#00ff9d'; x.fill(); x.shadowBlur = 0;
+        setShadow(x, 12, '#00ff9d');
+        x.fill();
+        clearShadow(x);
       }
     });
     /* center */
     x.beginPath(); x.arc(cx, cy, 4, 0, Math.PI * 2);
-    x.fillStyle = '#00ff9d'; x.shadowBlur = 16; x.shadowColor = '#00ff9d'; x.fill(); x.shadowBlur = 0;
-    angle += 0.022;
+    x.fillStyle = '#00ff9d';
+    setShadow(x, 16, '#00ff9d');
+    x.fill();
+    clearShadow(x);
+    /* Slower sweep on mobile */
+    angle += IS_MOBILE ? 0.028 : 0.022;
     radarAnimId = requestAnimationFrame(draw);
   }
   draw();
@@ -466,7 +561,10 @@ function initRadar() {
     c.height = Math.max(rect.height, 40);
     const x = c.getContext('2d');
     let t = 0;
+    let fc = 0;
     function draw() {
+      fc++;
+      if (IS_MOBILE && fc % 3 !== 0) { requestAnimationFrame(draw); return; }
       const w = c.width, h = c.height;
       x.clearRect(0, 0, w, h);
       const cx = w / 2, cy = h / 2;

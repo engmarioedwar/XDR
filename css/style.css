@@ -1,5 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
-   CYVEX XDR  —  style.css  (base)
+   CYVEX XDR  —  style.css  (v2 — Mobile Optimized)
+   Fixes:
+   - CSS variables use clamp() for fluid sizing
+   - Carousel radius properly calculated per viewport
+   - Removed overflow issues on small screens
 ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap');
@@ -22,9 +26,11 @@
   --muted:   #6b8aa6;
   --mono:    'JetBrains Mono', 'Consolas', monospace;
   --display: 'Orbitron', sans-serif;
+
+  /* Desktop defaults */
   --carousel-r: 540px;
-  --block-w:  460px;
-  --block-h:  340px;
+  --block-w:    460px;
+  --block-h:    340px;
 }
 
 /* ── RESET ── */
@@ -38,6 +44,9 @@ html, body {
   font-family: var(--mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* prevent overscroll on iOS */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* ── MATRIX BACKGROUND ── */
@@ -67,7 +76,7 @@ html, body {
 }
 #main-page.visible { opacity: 1; }
 
-/* ── SITE LOGO (fixed top-right) ── */
+/* ── SITE LOGO ── */
 #site-logo {
   position: fixed; top: 22px; left: 30px;
   z-index: 200;
@@ -106,7 +115,7 @@ html, body {
   font-family: var(--mono);
 }
 
-/* ── LANGUAGE TOGGLE (fixed bottom-left) ── */
+/* ── LANGUAGE TOGGLE ── */
 #lang-toggle {
   position: fixed; bottom: 24px; left: 28px;
   z-index: 200;
@@ -129,6 +138,8 @@ html, body {
   border-radius: 4px;
   cursor: pointer;
   transition: all .25s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .lang-btn:hover {
   color: var(--neon);
@@ -155,11 +166,12 @@ html, body {
   width: 44px; height: 80px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all .25s;
   font-family: var(--mono);
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
   transition: opacity .6s ease .8s, background .25s, color .25s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 #main-page.visible .carousel-arrow { opacity: 1; }
 .carousel-arrow:hover {
@@ -188,6 +200,8 @@ html, body {
   cursor: pointer;
   transition: all .3s;
   border: 1px solid transparent;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .c-dot.active {
   background: var(--neon);
@@ -197,7 +211,7 @@ html, body {
 }
 .c-dot:hover:not(.active) { background: var(--txt); }
 
-/* ── SCANLINE ANIMATION ── */
+/* ── SCANLINE ── */
 .scanline {
   position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, transparent, var(--neon), transparent);
@@ -221,47 +235,88 @@ html, body {
 @keyframes fadeIn {
   from { opacity: 0; } to { opacity: 1; }
 }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,255,170,.2); border-radius: 3px; }
 
-/* ═══════════════ RTL SUPPORT ═══════════════ */
-[dir="rtl"] #site-logo   { left: 28px; right: auto; }
-[dir="rtl"] #lang-toggle { right: 28px; left: auto; }
+/* ═══════════════ RTL ═══════════════ */
+[dir="rtl"] #site-logo            { left: 28px; right: auto; }
+[dir="rtl"] #lang-toggle          { right: 28px; left: auto; }
 [dir="rtl"] .carousel-arrow.left  { right: 20px; left: auto; }
 [dir="rtl"] .carousel-arrow.right { left: 20px; right: auto; }
-[dir="rtl"] .soc-title, [dir="rtl"] .soc-sub { text-align: right; }
-[dir="rtl"] .ss-lbl, [dir="rtl"] .ss-val, [dir="rtl"] .ss-delta { text-align: right; }
-[dir="rtl"] .feed-row { direction: rtl; }
+[dir="rtl"] .soc-title,
+[dir="rtl"] .soc-sub              { text-align: right; }
+[dir="rtl"] .ss-lbl,
+[dir="rtl"] .ss-val,
+[dir="rtl"] .ss-delta             { text-align: right; }
+[dir="rtl"] .feed-row             { direction: rtl; }
 
 /* ═══════════════ RESPONSIVE ═══════════════ */
-@media (max-width: 1100px) {
+
+/* Large desktop */
+@media (min-width: 1400px) {
   :root {
-    --carousel-r: 400px;
-    --block-w: 360px;
-    --block-h: 280px;
+    --carousel-r: 580px;
+    --block-w:    480px;
+    --block-h:    360px;
   }
 }
-@media (max-width: 768px) {
+
+/* Standard desktop */
+@media (max-width: 1399px) and (min-width: 1100px) {
   :root {
-    --carousel-r: 280px;
-    --block-w: 300px;
-    --block-h: 240px;
+    --carousel-r: 480px;
+    --block-w:    420px;
+    --block-h:    320px;
+  }
+}
+
+/* Small desktop / large tablet landscape */
+@media (max-width: 1099px) and (min-width: 769px) {
+  :root {
+    --carousel-r: 360px;
+    --block-w:    340px;
+    --block-h:    270px;
+  }
+  .carousel-arrow { width: 36px; height: 64px; font-size: 22px; }
+}
+
+/* Tablet portrait */
+@media (max-width: 768px) and (min-width: 481px) {
+  :root {
+    --carousel-r: 260px;
+    --block-w:    300px;
+    --block-h:    240px;
   }
   .carousel-arrow { display: none; }
-  #site-logo { font-size: 12px; top: 16px; right: 16px; }
-  #lang-toggle { bottom: 16px; left: 16px; }
+  #site-logo  { font-size: 12px; top: 16px; left: 16px; gap: 8px; }
+  #lang-toggle{ bottom: 16px; left: 16px; }
+  .logo-ver   { display: none; }
 }
+
+/* Mobile */
 @media (max-width: 480px) {
   :root {
+    /* Block should fit in viewport with some margin */
+    --block-w:    min(270px, 75vw);
+    --block-h:    min(210px, 52vw);
+    /* Radius: enough so side blocks don't overlap, but not too much */
+    --carousel-r: min(240px, 62vw);
+  }
+  .carousel-arrow { display: none; }
+  #site-logo  { font-size: 11px; top: 14px; left: 12px; gap: 6px; letter-spacing: 2px; }
+  #lang-toggle{ bottom: 14px; left: 12px; }
+  #carousel-dots { bottom: 18px; }
+  .logo-ver   { display: none; }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  :root {
+    --block-w:    240px;
+    --block-h:    190px;
     --carousel-r: 210px;
-    --block-w: 250px;
-    --block-h: 200px;
   }
 }
